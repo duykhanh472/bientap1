@@ -236,6 +236,17 @@ class SpellChecker:
         suggestions = []
         sym_results = self.sym_spell.lookup(norm_lower, Verbosity.CLOSEST, max_edit_distance=2)
 
+        # Hàm tách khung xương chữ cái (loại bỏ dấu thanh) để ưu tiên lỗi thiếu dấu trước lỗi đổi phụ âm
+        # Ví dụ: 'đep' và 'đẹp' có cùng khung là 'đep', trong khi 'đen' có khung là 'đen'
+        def get_skeleton(w: str) -> str:
+            nfd = unicodedata.normalize('NFD', w.lower())
+            return "".join(c for c in nfd if not unicodedata.combining(c))
+
+        target_skel = get_skeleton(norm_lower)
+
+        # Sắp xếp: 1. Khoảng cách edit tăng dần -> 2. Cùng khung xương chữ cái ưu tiên trước -> 3. Tần suất giảm dần
+        sym_results.sort(key=lambda it: (it.distance, 0 if get_skeleton(it.term) == target_skel else 1, -it.count))
+
         for item in sym_results:
             # Chỉ lấy các gợi ý là âm tiết tiếng Việt hợp lệ hoặc có trong từ điển
             if self.validator.is_valid_syllable(item.term) or item.term in self.master_dict:

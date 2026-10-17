@@ -229,7 +229,7 @@ Giao diện tập trung tối đa vào công thái học (Ergonomics), giúp ng�
 
 ### Giai đoạn 4: FastAPI Backend & Diff Engine
 
-- [ ] Viết `core/diff_engine.py`: Gom các thay đổi từ Tầng 2 & Tầng 3 thành danh sách Issues có tọa độ ký tự chính xác.
+- [x] Viết `core/diff_engine.py`: Gom các thay đổi từ Tầng 2 & Tầng 3 thành danh sách Issues có tọa độ ký tự chính xác.
 - [ ] Viết `server/app.py`:
   - `POST /api/scan`: Nhận Markdown, trả về AST Issues và bản text đề xuất.
   - `POST /api/apply`: Nhận danh sách Issue IDs được duyệt, unmask và trả về file Markdown sạch.
