@@ -1,0 +1,17 @@
+# ==============================================================================
+# VIETLIT-PROOFREADER: PROJECT DEPENDENCIES
+# ==============================================================================
+
+# 1. Backend Web Framework & Server
+fastapi>=0.110.0          # Framework xây dựng API phục vụ giao diện Web
+uvicorn[standard]>=0.29.0 # ASGI Web Server tốc độ cao
+python-multipart>=0.0.9   # Xử lý upload tệp Markdown (.md) qua trình duyệt
+
+# 2. Xử lý Markdown an toàn
+markdown-it-py>=3.0.0     # Bộ phân tích Markdown AST bảo vệ cú pháp thẻ in đậm, tiêu đề, thơ
+
+# 3. NLP Thống kê & Sửa lỗi chính tả OCR
+symspellpy>=6.7.7         # Thuật toán SymSpell tìm lỗi chính tả theo khoảng cách biên tập & tần suất
+
+# 4. Kiểm thử tự động (Testing)
+pytest>=8.0.0             # Chạy các bài test kiểm tra luật Typography và Normalizer
