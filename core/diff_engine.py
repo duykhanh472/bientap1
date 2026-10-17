@@ -3,16 +3,16 @@
 """
 core/diff_engine.py
 -------------------
-Bộ tổng hợp sai khác (Diff Engine) và quản lý tọa độ lỗi:
-1. Tích hợp Normalizer -> MarkdownGuard -> Typography -> SpellChecker thành pipeline duy nhất.
-2. Xác định tọa độ ký tự chính xác (start, end) của từng lỗi trên văn bản gốc.
+Bộ tổng hợp sai khác (Diff Engine) và quản lý tọa độ lỗi chuẩn sản xuất:
+1. Xác định tọa độ ký tự chính xác (start, end) trực tiếp trên văn bản gốc.
+2. Không xé vụn ký tự (bảo tồn trọn vẹn từ lỗi và cụm dấu câu).
 3. Đóng gói danh sách DiffIssue chuẩn hóa gửi cho Web UI / API.
-4. Áp dụng các quyết định duyệt lỗi (Apply Decisions) an toàn tuyệt đối bằng kỹ thuật Reverse Patching.
+4. Áp dụng các quyết định duyệt lỗi (Apply Decisions) bằng kỹ thuật Reverse Patching.
 """
 
-import difflib
 import html
 import os
+import re
 import sys
 import unicodedata
 from dataclasses import asdict, dataclass
@@ -24,10 +24,23 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from core.markdown_guard import MarkdownGuard
 from core.normalizer import normalize_text
 from core.spell_checker import SpellingIssue, get_spell_checker
-from core.typography import standardize_typography
+
+# Các từ viết tắt thông dụng tránh viết hoa nhầm
+ABBREVIATIONS = r'v\.v|th\.s|ts|gs|pgs|tr|sđd|tp|tt|bt|q|đ\/c'
+ABBREV_WITH_DOT = rf'\b(?:{ABBREVIATIONS}|[A-ZÀ-ỸĐ])\.'
+
+# Lời dẫn thoại ngoại lệ sau dấu ! hoặc ?
+SPEECH_TAG_PRONOUNS = r'(?:tôi|hắn|nó|ông|bà|thị|chàng|nàng|người|chúng tôi)'
+SPEECH_TAG_VERBS = r'(?:hỏi|đáp|bảo|nói|thưa|cười|nghĩ|kêu|la|than|thốt|rằng|tiếp)'
+SPEECH_TAG_PATTERN = re.compile(
+    rf'^{SPEECH_TAG_PRONOUNS}\s+{SPEECH_TAG_VERBS}\b',
+    re.IGNORECASE
+)
+
+# Ký tự chữ cái tiếng Việt
+VIET_LOWER = r'[a-zàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]'
 
 
 @dataclass
@@ -57,81 +70,38 @@ class DiffResult:
 
 class DiffEngine:
     """
-    Hệ thống phân tích sai khác và tổng hợp lỗi xuyên suốt toàn bộ các tầng.
+    Hệ thống phân tích sai khác và tổng hợp lỗi trực tiếp trên văn bản.
     """
 
     def __init__(self, data_dir: Optional[Path] = None):
-        self.guard = MarkdownGuard()
         self.spell_checker = get_spell_checker()
 
     def analyze_text(self, raw_text: str) -> DiffResult:
         """
-        Thực thi toàn bộ Pipeline kiểm định trên văn bản và trả về DiffResult:
-        1. Chuẩn hóa cơ sở (Unicode NFC, ngắt dòng).
-        2. Che chắn cú pháp Markdown.
-        3. Dò lỗi chính tả và dính chữ (SpellChecker).
-        4. Dò lỗi định dạng và viết hoa (Typography).
-        5. So khớp tính toán tọa độ và gắn thẻ HTML.
+        Thực thi phân tích toàn diện trực tiếp trên văn bản cơ sở:
+        1. Chuẩn hóa Unicode NFC và dọn rác ẩn.
+        2. Bóc tách lỗi chính tả & dính chữ với tọa độ thực.
+        3. Bóc tách lỗi Typography & Viết hoa thành từng cụm nguyên vẹn.
+        4. Hợp nhất, sắp xếp và sinh bản đề xuất hoàn chỉnh.
         """
         if not raw_text:
             return DiffResult("", "", [], "", {})
 
-        # Bước 1: Chuẩn hóa kỹ thuật cơ sở
+        # Bước 1: Chuẩn hóa kỹ thuật cơ sở (Unicode NFC, ngắt dòng)
         base_text = normalize_text(raw_text)
 
-        # Bước 2: Bảo vệ cú pháp Markdown bằng Masking
-        masked_text, mask_map = self.guard.mask(base_text)
-
-        # Bước 3: Dò lỗi chính tả & dính chữ trên phần chữ lộ ra
-        spelling_issues = self.spell_checker.check_document(masked_text)
-
-        # Tạo bản văn bản tạm thời đã thay thế các lỗi chính tả được đề xuất cao nhất
-        spell_fixed_masked = masked_text
-        for sp in sorted(spelling_issues, key=lambda x: x.start, reverse=True):
-            if sp.suggestions:
-                best_sug = sp.suggestions[0]
-                spell_fixed_masked = (
-                    spell_fixed_masked[:sp.start] + best_sug + spell_fixed_masked[sp.end:]
-                )
-
-        # Bước 4: Chạy toàn bộ quy tắc Typography & Viết hoa
-        fully_fixed_masked = standardize_typography(spell_fixed_masked)
-
-        # Bước 5: Hoàn trả lại các thẻ Markdown ban đầu
-        proposed_clean_text = self.guard.unmask(fully_fixed_masked, mask_map)
-
-        # Bước 6: So khớp bằng SequenceMatcher giữa base_text và proposed_clean_text
-        # để trích xuất tọa độ ký tự chính xác trên văn bản gốc
-        issues = self._compute_diff_issues(base_text, proposed_clean_text, spelling_issues)
-
-        # Bước 7: Sinh văn bản HTML highlight và thống kê
-        annotated_html = self._generate_annotated_html(base_text, issues)
-        stats = self._compute_stats(issues)
-
-        return DiffResult(
-            original_text=base_text,
-            proposed_text=proposed_clean_text,
-            issues=issues,
-            annotated_html=annotated_html,
-            stats=stats
-        )
-
-    def _compute_diff_issues(
-        self,
-        original_text: str,
-        proposed_text: str,
-        spelling_issues: List[SpellingIssue]
-    ) -> List[DiffIssue]:
-        """Tính toán và phân loại các điểm khác biệt giữa bản gốc và bản đề xuất."""
-        matcher = difflib.SequenceMatcher(None, original_text, proposed_text, autojunk=False)
-        diff_issues: List[DiffIssue] = []
+        issues: List[DiffIssue] = []
         issue_counter = 1
-
-        # 1. Đưa toàn bộ các lỗi từ vựng (Spell & Split) vào danh sách trước với tọa độ nguyên vẹn
         occupied_spans: List[Tuple[int, int]] = []
+
+        # -------------------------------------------------------------
+        # BƯỚC 2: QUÉT LỖI CHÍNH TẢ & DÍNH CHỮ TRỰC TIẾP TRÊN BASE_TEXT
+        # (Đảm bảo 100% tọa độ start/end khớp tuyệt đối với bản gốc)
+        # -------------------------------------------------------------
+        spelling_issues = self.spell_checker.check_document(base_text)
         for sp in spelling_issues:
             best_sug = sp.suggestions[0] if sp.suggestions else sp.original
-            diff_issues.append(DiffIssue(
+            issues.append(DiffIssue(
                 id=f"iss_{issue_counter}",
                 category=sp.issue_type,
                 start=sp.start,
@@ -146,49 +116,182 @@ class DiffEngine:
             occupied_spans.append((sp.start, sp.end))
             issue_counter += 1
 
-        # 2. Quét các sai khác định dạng/typography bằng SequenceMatcher nhưng bỏ qua vùng của lỗi từ vựng
-        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-            if tag == 'equal':
+        # -------------------------------------------------------------
+        # BƯỚC 3: QUÉT LỖI TYPOGRAPHY & VIẾT HOA THEO CỤM NGUYÊN VẸN
+        # -------------------------------------------------------------
+
+        # 3.1 Gạch đầu dòng hội thoại: - hoặc – -> —
+        for m in re.finditer(r'(?m)^[ \t]*([-–—]{1,2})[ \t]+', base_text):
+            # Bỏ qua nếu là đường kẻ ngang phân cách Markdown (--- hoặc ***)
+            line = base_text[m.start():base_text.find('\n', m.start()) if '\n' in base_text[m.start():] else len(base_text)]
+            if re.match(r'^([-*_]\s*){3,}$', line.strip()):
                 continue
 
-            # Nếu vùng diff này nằm trong hoặc giao với từ bị bắt lỗi chính tả -> Đã xử lý ở trên, bỏ qua
-            if any(not (i2 <= start or i1 >= end) for start, end in occupied_spans):
+            if m.group(0) != "— ":
+                s, e = m.start(), m.end()
+                if not any(not (e <= start or s >= end) for start, end in occupied_spans):
+                    issues.append(DiffIssue(
+                        id=f"iss_{issue_counter}",
+                        category="TYPOGRAPHY",
+                        start=s,
+                        end=e,
+                        original=m.group(0),
+                        replacement="— ",
+                        suggestions=["— "],
+                        explanation="Chuẩn hóa gạch đầu dòng thoại thành Em-dash (—)",
+                        rule="DIALOGUE_EM_DASH",
+                        confidence=0.98
+                    ))
+                    occupied_spans.append((s, e))
+                    issue_counter += 1
+
+        # 3.2 Viết hoa sau gạch đầu dòng thoại
+        for m in re.finditer(rf'(?m)^[ \t]*[-–—]{{1,2}}[ \t]+({VIET_LOWER})', base_text):
+            s, e = m.start(1), m.end(1)
+            if not any(not (e <= start or s >= end) for start, end in occupied_spans):
+                issues.append(DiffIssue(
+                    id=f"iss_{issue_counter}",
+                    category="CAPITALIZATION",
+                    start=s,
+                    end=e,
+                    original=m.group(1),
+                    replacement=m.group(1).upper(),
+                    suggestions=[m.group(1).upper()],
+                    explanation="Viết hoa chữ cái đầu tiên sau gạch thoại",
+                    rule="DIALOGUE_CAPITALIZATION",
+                    confidence=0.95
+                ))
+                occupied_spans.append((s, e))
+                issue_counter += 1
+
+        # 3.3 Khoảng trắng quanh dấu phẩy: bắt trọn cụm ' ,' hoặc ',b' -> chuẩn hóa thành ', '
+        for m in re.finditer(r'[ \t]*,[ \t]*(?=[^\d\)\],;:!?\"\'”»\n])', base_text):
+            if m.group(0) != ", ":
+                s, e = m.start(), m.end()
+                if not any(not (e <= start or s >= end) for start, end in occupied_spans):
+                    issues.append(DiffIssue(
+                        id=f"iss_{issue_counter}",
+                        category="TYPOGRAPHY",
+                        start=s,
+                        end=e,
+                        original=m.group(0),
+                        replacement=", ",
+                        suggestions=[", "],
+                        explanation="Chuẩn hóa khoảng trắng quanh dấu phẩy",
+                        rule="COMMA_SPACING",
+                        confidence=0.98
+                    ))
+                    occupied_spans.append((s, e))
+                    issue_counter += 1
+
+        # 3.4 Khoảng trắng thừa trước các dấu câu khác (; : ! ?)
+        for m in re.finditer(r'[ \t]+([;:!?])', base_text):
+            s, e = m.start(), m.end()
+            if not any(not (e <= start or s >= end) for start, end in occupied_spans):
+                issues.append(DiffIssue(
+                    id=f"iss_{issue_counter}",
+                    category="TYPOGRAPHY",
+                    start=s,
+                    end=e,
+                    original=m.group(0),
+                    replacement=m.group(1),
+                    suggestions=[m.group(1)],
+                    explanation=f"Xóa khoảng trắng thừa trước dấu {m.group(1)}",
+                    rule="PUNCTUATION_SPACING",
+                    confidence=0.98
+                ))
+                occupied_spans.append((s, e))
+                issue_counter += 1
+
+        # 3.5 Khoảng trắng thừa trước dấu chấm câu (.)
+        for m in re.finditer(r'[ \t]+(?<!\.)\.(?!\.)', base_text):
+            s, e = m.start(), m.end()
+            if not any(not (e <= start or s >= end) for start, end in occupied_spans):
+                issues.append(DiffIssue(
+                    id=f"iss_{issue_counter}",
+                    category="TYPOGRAPHY",
+                    start=s,
+                    end=e,
+                    original=m.group(0),
+                    replacement=".",
+                    suggestions=["."],
+                    explanation="Xóa khoảng trắng thừa trước dấu chấm câu",
+                    rule="PERIOD_SPACING",
+                    confidence=0.98
+                ))
+                occupied_spans.append((s, e))
+                issue_counter += 1
+
+        # 3.6 Viết hoa đầu dòng / đầu đoạn văn
+        for m in re.finditer(rf'(?m)^({VIET_LOWER})', base_text):
+            s, e = m.start(1), m.end(1)
+            if not any(not (e <= start or s >= end) for start, end in occupied_spans):
+                issues.append(DiffIssue(
+                    id=f"iss_{issue_counter}",
+                    category="CAPITALIZATION",
+                    start=s,
+                    end=e,
+                    original=m.group(1),
+                    replacement=m.group(1).upper(),
+                    suggestions=[m.group(1).upper()],
+                    explanation="Viết hoa chữ cái đầu đoạn văn",
+                    rule="PARAGRAPH_CAPITALIZATION",
+                    confidence=0.95
+                ))
+                occupied_spans.append((s, e))
+                issue_counter += 1
+
+        # 3.7 Viết hoa sau dấu kết thúc câu (., !, ?, ...)
+        sent_end_re = re.compile(
+            rf'({ABBREV_WITH_DOT})|(\.{{3}}|[\.!\?])(["”»\)]*)(\s+)({VIET_LOWER})'
+        )
+        for m in sent_end_re.finditer(base_text):
+            # Nếu là từ viết tắt -> bỏ qua
+            if m.group(1):
                 continue
 
-            orig_chunk = original_text[i1:i2]
-            repl_chunk = proposed_text[j1:j2]
+            punct = m.group(2)
+            following_char = m.group(5)
+            s, e = m.start(5), m.end(5)
 
-            # Phân loại lỗi viết hoa vs lỗi khoảng trắng/dấu câu
-            if orig_chunk.strip().lower() == repl_chunk.strip().lower() and orig_chunk != repl_chunk:
-                category = "CAPITALIZATION"
-                explanation = "Tự động viết hoa sau dấu kết thúc câu hoặc đầu dòng thoại"
-                rule_name = "SENTENCE_CAPITALIZATION"
-            elif orig_chunk.startswith(("-", "–")) and repl_chunk.startswith("—"):
-                category = "TYPOGRAPHY"
-                explanation = "Chuẩn hóa gạch đầu dòng thoại thành Em-dash (—)"
-                rule_name = "DIALOGUE_EM_DASH"
-            else:
-                category = "TYPOGRAPHY"
-                explanation = "Chuẩn hóa khoảng trắng quanh dấu câu và trích dẫn"
-                rule_name = "PUNCTUATION_SPACING"
+            # Ngoại lệ: Lời dẫn thoại sau ! hoặc ? (vd: "? tôi hỏi")
+            if punct in ('!', '?') and SPEECH_TAG_PATTERN.match(base_text[s:]):
+                continue
 
-            diff_issues.append(DiffIssue(
-                id=f"iss_{issue_counter}",
-                category=category,
-                start=i1,
-                end=i2,
-                original=orig_chunk,
-                replacement=repl_chunk,
-                suggestions=[repl_chunk],
-                explanation=explanation,
-                rule=rule_name,
-                confidence=0.95
-            ))
-            issue_counter += 1
+            if not any(not (e <= start or s >= end) for start, end in occupied_spans):
+                issues.append(DiffIssue(
+                    id=f"iss_{issue_counter}",
+                    category="CAPITALIZATION",
+                    start=s,
+                    end=e,
+                    original=following_char,
+                    replacement=following_char.upper(),
+                    suggestions=[following_char.upper()],
+                    explanation="Viết hoa sau dấu kết thúc câu",
+                    rule="SENTENCE_CAPITALIZATION",
+                    confidence=0.95
+                ))
+                occupied_spans.append((s, e))
+                issue_counter += 1
 
-        # Sắp xếp toàn bộ issue theo thứ tự xuất hiện trong văn bản
-        diff_issues.sort(key=lambda x: x.start)
-        return diff_issues
+        # Sắp xếp các issue tăng dần theo tọa độ bắt đầu
+        issues.sort(key=lambda x: x.start)
+
+        # -------------------------------------------------------------
+        # BƯỚC 4: SINH BẢN ĐỀ XUẤT HOÀN THIỆN & HTML HIGHLIGHT
+        # -------------------------------------------------------------
+        all_accepted_decisions = {iss.id: iss.replacement for iss in issues}
+        proposed_text = self.apply_decisions(base_text, issues, all_accepted_decisions)
+        annotated_html = self._generate_annotated_html(base_text, issues)
+        stats = self._compute_stats(issues)
+
+        return DiffResult(
+            original_text=base_text,
+            proposed_text=proposed_text,
+            issues=issues,
+            annotated_html=annotated_html,
+            stats=stats
+        )
 
     def _generate_annotated_html(self, text: str, issues: List[DiffIssue]) -> str:
         """Sinh chuỗi HTML có gắn các thẻ <mark> highlight phân loại màu cho Web UI."""
@@ -199,11 +302,9 @@ class DiffEngine:
         last_idx = 0
 
         for iss in issues:
-            # Đoạn văn bản bình thường trước lỗi
             if iss.start > last_idx:
                 parts.append(html.escape(text[last_idx:iss.start]))
 
-            # Thẻ highlight cho lỗi
             escaped_orig = html.escape(iss.original)
             escaped_repl = html.escape(iss.replacement)
             escaped_expl = html.escape(iss.explanation)
@@ -220,7 +321,6 @@ class DiffEngine:
             parts.append(mark_tag)
             last_idx = iss.end
 
-        # Đoạn văn bản còn lại ở cuối
         if last_idx < len(text):
             parts.append(html.escape(text[last_idx:]))
 
@@ -249,15 +349,13 @@ class DiffEngine:
         """
         Áp dụng các lựa chọn của người dùng vào văn bản gốc:
         - decisions: Từ điển mapping {issue_id: từ_thay_thế_được_chọn}
-          Nếu issue_id không có trong decisions hoặc giá trị là '__IGNORE__' -> Giữ nguyên gốc.
-        - Kỹ thuật: Reverse Patching (áp dụng từ cuối lên đầu để không lệch offset).
+        - Kỹ thuật: Reverse Patching (áp dụng từ cuối lên đầu để không bao giờ lệch offset).
         """
         if not original_text or not issues:
             return original_text
 
         issue_map = {iss.id: iss for iss in issues}
 
-        # Lọc ra các issue được người dùng đồng ý sửa
         valid_patches = []
         for iss_id, chosen_repl in decisions.items():
             if chosen_repl == "__IGNORE__":
@@ -266,7 +364,7 @@ class DiffEngine:
                 iss = issue_map[iss_id]
                 valid_patches.append((iss.start, iss.end, chosen_repl))
 
-        # Sắp xếp theo chiều giảm dần của tọa độ start (áp dụng từ dưới lên trên)
+        # Sắp xếp giảm dần theo tọa độ start
         valid_patches.sort(key=lambda p: p[0], reverse=True)
 
         patched_text = original_text
@@ -336,11 +434,7 @@ if __name__ == "__main__":
         assert extracted == iss.original, f"Lệch tọa độ: {extracted!r} != {iss.original!r}"
     print("  ✓ 100% tọa độ start:end khớp chính xác với lát cắt văn bản gốc!")
 
-    # Giả lập người dùng duyệt lỗi trên Web:
-    # - Đồng ý sửa toàn bộ lỗi Typography và Viết hoa
-    # - Đồng ý sửa dính chữ 'tronglòng' -> 'trong lòng'
-    # - Chọn từ 'người' cho 'ngưòi'
-    # - Chọn từ 'đẹp' cho 'đep'
+    # Giả lập người dùng duyệt lỗi trên Web
     decisions = {}
     for iss in result.issues:
         decisions[iss.id] = iss.suggestions[0] if iss.suggestions else iss.replacement
@@ -365,4 +459,3 @@ if __name__ == "__main__":
     assert "dinh Gia Định" in final_text, "Lỗi: Đụng chạm vào địa danh 'dinh Gia Định'!"
 
     print("\n[THÀNH CÔNG] Module core/diff_engine.py đã vượt qua toàn bộ các bài test!")
-

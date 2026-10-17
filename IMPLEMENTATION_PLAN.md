@@ -230,14 +230,14 @@ Giao diện tập trung tối đa vào công thái học (Ergonomics), giúp ng�
 ### Giai đoạn 4: FastAPI Backend & Diff Engine
 
 - [x] Viết `core/diff_engine.py`: Gom các thay đổi từ Tầng 2 & Tầng 3 thành danh sách Issues có tọa độ ký tự chính xác.
-- [ ] Viết `server/app.py`:
+- [x] Viết `server/app.py`:
   - `POST /api/scan`: Nhận Markdown, trả về AST Issues và bản text đề xuất.
   - `POST /api/apply`: Nhận danh sách Issue IDs được duyệt, unmask và trả về file Markdown sạch.
   - `POST /api/whitelist`: Ghi từ mới vào file `data/whitelist.txt`.
 
 ### Giai đoạn 5: Dựng Giao diện Web UI (Vanilla JS)
 
-- [ ] Viết `server/static/index.html` và `style.css`: Layout Split-view 2 cột với typography thân thiện với việc đọc sách dài.
+- [x] Viết `server/static/index.html` và `style.css`: Layout Split-view 2 cột với typography thân thiện với việc đọc sách dài.
 - [ ] Viết `server/static/app.js`:
   - Fetch dữ liệu từ API `/api/scan`.
   - Render thẻ `<mark class="issue [category]" data-id="...">` trên cột phải.
@@ -265,7 +265,3 @@ Giao diện tập trung tối đa vào công thái học (Ergonomics), giúp ng�
    - File Markdown xuất ra từ công cụ khi chuyển đổi sang `.epub` (bằng Pandoc hoặc Calibre) không xuất hiện bất kỳ lỗi bể layout, mất tiêu đề hay mất trích dẫn.
 4. **Vận hành độc lập:**
    - Công cụ chạy trực tiếp bằng lệnh `python run.py`, toàn bộ giao diện phục vụ cục bộ trên trình duyệt qua `http://localhost:8000`, hoạt động hoàn hảo khi ngắt toàn bộ kết nối Internet.
-
----
-
-Bản kế hoạch trên đã khép kín toàn bộ yêu cầu, kiến trúc và lộ trình triển khai chi tiết. Khi bạn đã xem xét và đồng ý với bản kế hoạch này, chúng ta sẽ bắt đầu ngay vào **Giai đoạn 1**: Viết các đoạn mã chuẩn bị dữ liệu ngữ âm (`tools/build_syllables.py`) và chuyển đổi từ điển.

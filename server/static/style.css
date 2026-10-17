@@ -1,0 +1,568 @@
+/* ==============================================================================
+   VIETLIT-PROOFREADER: STYLESHEET CHUYÊN DỤNG CHO ĐỌC VÀ SOÁT LỖI SÁCH VĂN HỌC
+   Palette: Warm Paper Theme (Tông giấy ngả vàng chống mỏi mắt)
+   Typography: Charter, Georgia, Merriweather, Hoefler Text
+============================================================================== */
+
+:root {
+    /* Màu nền giấy và mực đọc sách */
+    --bg-app: #f4efe6;              /* Màu nền toàn ứng dụng */
+    --bg-paper: #fcfbf9;            /* Màu nền trang sách */
+    --bg-paper-alt: #f7f3ec;        /* Màu nền cột phụ */
+    --text-ink: #2b2621;            /* Màu mực in chính (than ấm) */
+    --text-muted: #736b63;          /* Màu chữ phụ, chú thích */
+    --border-color: #e5dfd5;        /* Đường kẻ viền trang nhã */
+    --border-dark: #d3cbbe;
+
+    /* Mã màu Highlight trực quan cho 4 nhóm lỗi */
+    --hl-typo-bg: #e0f2fe;          /* Xanh lam: Định dạng, khoảng trắng, gạch thoại */
+    --hl-typo-border: #38bdf8;
+    --hl-typo-text: #0369a1;
+
+    --hl-case-bg: #f3e8ff;          /* Tím: Viết hoa sau dấu chấm / đầu câu */
+    --hl-case-border: #c084fc;
+    --hl-case-text: #7e22ce;
+
+    --hl-split-bg: #fef3c7;         /* Vàng hổ phách: Dính chữ OCR (Viterbi) */
+    --hl-split-border: #f59e0b;
+    --hl-split-text: #b45309;
+
+    --hl-ocr-bg: #fee2e2;           /* Đỏ san hô: Sai chính tả OCR (SymSpell) */
+    --hl-ocr-border: #f87171;
+    --hl-ocr-text: #b91c1c;
+
+    /* Nút bấm giao diện */
+    --btn-primary-bg: #8b5cf6;
+    --btn-primary-hover: #7c3aed;
+    --btn-success-bg: #10b981;
+    --btn-success-hover: #059669;
+
+    /* Font chữ sách */
+    --font-serif: "Charter", "Georgia", "Merriweather", "Palatino", "Times New Roman", serif;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* Reset cơ bản */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-app);
+    color: var(--text-ink);
+    font-family: var(--font-sans);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ------------------------------------------------------------------------------
+   1. HEADER NAVBAR
+------------------------------------------------------------------------------ */
+.app-header {
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.6rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    z-index: 10;
+}
+
+.header-left, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: #451a03;
+}
+
+.logo-badge {
+    background: #fef3c7;
+    color: #92400e;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid #fde68a;
+}
+
+.file-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.file-name-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ------------------------------------------------------------------------------
+   2. STATS BAR (THANH THỐNG KÊ LỖI)
+------------------------------------------------------------------------------ */
+.stats-bar {
+    background: var(--bg-paper);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.45rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    font-size: 0.85rem;
+}
+
+.stat-item strong {
+    font-size: 0.95rem;
+    margin-left: 0.2rem;
+}
+
+.stat-total strong { color: var(--text-ink); }
+.stat-typo strong { color: var(--hl-typo-text); }
+.stat-case strong { color: var(--hl-case-text); }
+.stat-split strong { color: var(--hl-split-text); }
+.stat-ocr strong { color: var(--hl-ocr-text); }
+
+.stats-legend {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.legend-chip {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.chip-typo  { background: var(--hl-typo-bg);  color: var(--hl-typo-text);  border: 1px solid var(--hl-typo-border); }
+.chip-case  { background: var(--hl-case-bg);  color: var(--hl-case-text);  border: 1px solid var(--hl-case-border); }
+.chip-split { background: var(--hl-split-bg); color: var(--hl-split-text); border: 1px solid var(--hl-split-border); }
+.chip-ocr   { background: var(--hl-ocr-bg);   color: var(--hl-ocr-text);   border: 1px solid var(--hl-ocr-border); }
+
+/* ------------------------------------------------------------------------------
+   3. WORKSPACE 2 CỘT (SPLIT-VIEW)
+------------------------------------------------------------------------------ */
+.workspace-container {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border-color);
+    overflow: hidden;
+}
+
+.panel-column {
+    background: var(--bg-paper);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.left-column {
+    background: var(--bg-paper-alt);
+    border-right: 1px solid var(--border-color);
+}
+
+.column-header {
+    background: #fdfcf9;
+    padding: 0.5rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.column-header h2 {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.char-count, .review-status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Vùng hiển thị sách với Typography văn học */
+.book-reader-view {
+    flex: 1;
+    padding: 2.5rem 3.5rem;
+    overflow-y: auto;
+    font-family: var(--font-serif);
+    font-size: 1.15rem;           /* Cỡ chữ 18.4px tối ưu cho sách */
+    line-height: 1.85;            /* Khoảng cách dòng rộng rãi */
+    color: var(--text-ink);
+    white-space: pre-wrap;        /* Bảo tồn thụt lề và thơ */
+    word-break: break-word;
+}
+
+.empty-placeholder {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    text-align: center;
+}
+
+/* ------------------------------------------------------------------------------
+   4. THẺ HIGHLIGHT LỖI (<mark class="diff-issue ...">)
+------------------------------------------------------------------------------ */
+.diff-issue {
+    padding: 0.1rem 0.25rem;
+    border-radius: 3px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease-in-out;
+    position: relative;
+    font-weight: 500;
+}
+
+.diff-issue:hover {
+    filter: brightness(0.92);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Phân loại màu theo danh mục */
+.diff-issue.diff-typography {
+    background-color: var(--hl-typo-bg);
+    color: var(--hl-typo-text);
+    border-bottom: 2px solid var(--hl-typo-border);
+}
+
+.diff-issue.diff-capitalization {
+    background-color: var(--hl-case-bg);
+    color: var(--hl-case-text);
+    border-bottom: 2px solid var(--hl-case-border);
+}
+
+.diff-issue.diff-ocr_split {
+    background-color: var(--hl-split-bg);
+    color: var(--hl-split-text);
+    border-bottom: 2px solid var(--hl-split-border);
+}
+
+.diff-issue.diff-typo_ocr {
+    background-color: var(--hl-ocr-bg);
+    color: var(--hl-ocr-text);
+    border-bottom: 2px solid var(--hl-ocr-border);
+}
+
+/* Trạng thái lỗi đang được chọn bằng phím tắt J/K */
+.diff-issue.is-active-target {
+    outline: 2px solid #2563eb;
+    box-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+    animation: pulseHighlight 1s infinite alternate;
+}
+
+@keyframes pulseHighlight {
+    from { transform: scale(1.0); }
+    to { transform: scale(1.04); }
+}
+
+/* ------------------------------------------------------------------------------
+   5. POPOVER DUYỆT LỖI TƯƠNG TÁC
+------------------------------------------------------------------------------ */
+.issue-popover {
+    position: absolute;
+    width: 320px;
+    background: #ffffff;
+    border: 1px solid var(--border-dark);
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: var(--font-sans);
+}
+
+.popover-header {
+    background: #fafaf9;
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.badge-cat {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+}
+
+.badge-id {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.popover-close-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: var(--text-muted);
+}
+
+.popover-body {
+    padding: 0.8rem;
+}
+
+.diff-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    background: #f8fafc;
+    padding: 0.5rem;
+    border-radius: 6px;
+    margin-bottom: 0.6rem;
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+}
+
+.diff-from {
+    color: #dc2626;
+    text-decoration: line-through;
+}
+
+.diff-arrow {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.diff-to {
+    color: #16a34a;
+    font-weight: 700;
+}
+
+.popover-explanation {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin-bottom: 0.6rem;
+}
+
+.suggestions-group label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+}
+
+.suggestions-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.sug-chip {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.85rem;
+    font-family: var(--font-serif);
+    cursor: pointer;
+}
+
+.sug-chip:hover {
+    background: #e2e8f0;
+    border-color: #94a3b8;
+}
+
+.popover-actions {
+    padding: 0.6rem 0.8rem;
+    background: #fafaf9;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 0.4rem;
+}
+
+/* ------------------------------------------------------------------------------
+   6. FOOTER BAR (PHÍM TẮT & ĐIỀU HƯỚNG)
+------------------------------------------------------------------------------ */
+.footer-bar {
+    background: #ffffff;
+    border-top: 1px solid var(--border-color);
+    padding: 0.5rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    z-index: 10;
+}
+
+.nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.issue-progress {
+    font-weight: 600;
+    color: var(--text-ink);
+}
+
+.shortcut-hints {
+    display: flex;
+    gap: 1rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+kbd {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 3px;
+    padding: 0.1rem 0.35rem;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.08);
+}
+
+/* ------------------------------------------------------------------------------
+   7. MODAL DÁN VĂN BẢN
+------------------------------------------------------------------------------ */
+.modal-backdrop {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.modal-card {
+    background: #ffffff;
+    width: 700px;
+    max-width: 90vw;
+    border-radius: 8px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 0.8rem 1.2rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    font-size: 1rem;
+}
+
+.modal-body {
+    padding: 1rem 1.2rem;
+}
+
+.modal-body textarea {
+    width: 100%;
+    height: 320px;
+    padding: 0.8rem;
+    border: 1px solid var(--border-dark);
+    border-radius: 6px;
+    font-family: var(--font-serif);
+    font-size: 1rem;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+}
+
+.modal-body textarea:focus {
+    border-color: var(--btn-primary-bg);
+}
+
+.modal-footer {
+    padding: 0.8rem 1.2rem;
+    background: #fafaf9;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
+/* ------------------------------------------------------------------------------
+   8. HỆ THỐNG NÚT BẤM (BUTTONS)
+------------------------------------------------------------------------------ */
+.btn {
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.btn-primary {
+    background: var(--btn-primary-bg);
+    color: #ffffff;
+}
+.btn-primary:hover {
+    background: var(--btn-primary-hover);
+}
+
+.btn-secondary {
+    background: #0284c7;
+    color: #ffffff;
+}
+.btn-secondary:hover {
+    background: #0369a1;
+}
+
+.btn-success {
+    background: var(--btn-success-bg);
+    color: #ffffff;
+}
+.btn-success:hover {
+    background: var(--btn-success-hover);
+}
+
+.btn-outline {
+    background: #ffffff;
+    border-color: var(--border-dark);
+    color: var(--text-ink);
+}
+.btn-outline:hover {
+    background: #f5f5f4;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.55rem;
+    font-size: 0.8rem;
+}

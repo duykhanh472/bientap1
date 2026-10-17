@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VietLit-Proofreader — Soát Lỗi Văn Học Chữ Quốc Ngữ</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="theme-paper">
+
+    <!-- THANH ĐIỀU HƯỚNG CHÍNH (TOP NAVBAR) -->
+    <header class="app-header">
+        <div class="header-left">
+            <div class="logo">
+                <span class="logo-icon">📖</span>
+                <span class="logo-title">VietLit-Proofreader</span>
+                <span class="logo-badge">1880–1975</span>
+            </div>
+            <div class="file-controls">
+                <input type="file" id="fileInput" accept=".md,.txt,.markdown" style="display: none;">
+                <button id="btnUpload" class="btn btn-outline" title="Mở tệp Markdown từ máy tính">
+                    📂 Mở tệp .md
+                </button>
+                <button id="btnNewText" class="btn btn-outline" title="Nhập hoặc dán văn bản mới">
+                    ✏️ Nhập văn bản
+                </button>
+                <span id="currentFileName" class="file-name-label">Chưa chọn tệp</span>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <button id="btnQuickAcceptTypo" class="btn btn-secondary" title="Chấp nhận toàn bộ lỗi khoảng trắng, gạch thoại và viết hoa">
+                ⚡ Duyệt nhanh Định dạng
+            </button>
+            <button id="btnExport" class="btn btn-primary" title="Áp dụng các thay đổi và tải file Markdown sạch">
+                💾 Xuất Markdown
+            </button>
+        </div>
+    </header>
+
+    <!-- THANH THỐNG KÊ LỖI (STATS BAR) -->
+    <div id="statsBar" class="stats-bar">
+        <div class="stat-item stat-total">Tổng lỗi: <strong id="statTotal">0</strong></div>
+        <div class="stat-item stat-typo">Định dạng & Dấu: <strong id="statTypo">0</strong></div>
+        <div class="stat-item stat-case">Viết hoa: <strong id="statCase">0</strong></div>
+        <div class="stat-item stat-split">Dính chữ (OCR): <strong id="statSplit">0</strong></div>
+        <div class="stat-item stat-ocr">Lỗi chính tả (OCR): <strong id="statOcr">0</strong></div>
+        <div class="stats-legend">
+            <span class="legend-chip chip-typo">Dấu câu / Em-dash</span>
+            <span class="legend-chip chip-case">Viết hoa</span>
+            <span class="legend-chip chip-split">Dính chữ</span>
+            <span class="legend-chip chip-ocr">Sai chính tả</span>
+        </div>
+    </div>
+
+    <!-- KHÔNG GIAN LÀM VIỆC 2 CỘT (SPLIT-VIEW WORKSPACE) -->
+    <main class="workspace-container">
+        
+        <!-- CỘT TRÁI: VĂN BẢN GỐC -->
+        <section class="panel-column left-column">
+            <div class="column-header">
+                <h2>CỘT TRÁI: BẢN GỐC (ORIGINAL)</h2>
+                <div class="header-tools">
+                    <span id="leftCharCount" class="char-count">0 từ</span>
+                </div>
+            </div>
+            <div id="leftContent" class="book-reader-view scroll-sync">
+                <div class="empty-placeholder">
+                    <p>Chưa có văn bản. Vui lòng bấm <strong>[📂 Mở tệp .md]</strong> hoặc <strong>[✏️ Nhập văn bản]</strong> để bắt đầu soát lỗi.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- CỘT PHẢI: VĂN BẢN DUYỆT SỬA & HIGHLIGHT -->
+        <section class="panel-column right-column">
+            <div class="column-header">
+                <h2>CỘT PHẢI: BẢN ĐỀ XUẤT (DIFF & PROPOSALS)</h2>
+                <div class="header-tools">
+                    <span id="rightStatus" class="review-status">Đang chờ quét...</span>
+                </div>
+            </div>
+            <div id="rightContent" class="book-reader-view scroll-sync">
+                <div class="empty-placeholder">
+                    <p>Các đề xuất sửa đổi và nhãn lỗi sẽ hiển thị trực quan tại đây.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- THANH ĐIỀU HƯỚNG PHÍM TẮT DƯỚI ĐÁY (KEYBOARD HINT BAR) -->
+    <footer class="footer-bar">
+        <div class="nav-controls">
+            <button id="btnPrevIssue" class="btn btn-sm">▲ Lỗi trước (K)</button>
+            <span id="issueProgress" class="issue-progress">0 / 0</span>
+            <button id="btnNextIssue" class="btn btn-sm">Lỗi tiếp (J) ▼</button>
+        </div>
+        <div class="shortcut-hints">
+            <span><kbd>J</kbd>/<kbd>K</kbd>: Di chuyển lỗi</span>
+            <span><kbd>Enter</kbd>: Chấp nhận</span>
+            <span><kbd>X</kbd>: Bỏ qua</span>
+            <span><kbd>W</kbd>: Thêm vào Whitelist</span>
+        </div>
+    </footer>
+
+    <!-- MODAL / POPOVER TƯƠNG TÁC KHI BẤM VÀO LỖI -->
+    <div id="issuePopover" class="issue-popover" style="display: none;">
+        <div class="popover-header">
+            <span id="popoverCategory" class="badge-cat">LỖI CHÍNH TẢ</span>
+            <span id="popoverId" class="badge-id">#iss_1</span>
+            <button id="btnPopoverClose" class="popover-close-btn">&times;</button>
+        </div>
+        <div class="popover-body">
+            <div class="diff-preview">
+                <span class="diff-from" id="popoverOriginal"></span>
+                <span class="diff-arrow">➔</span>
+                <span class="diff-to" id="popoverReplacement"></span>
+            </div>
+            <p id="popoverExplanation" class="popover-explanation"></p>
+            
+            <!-- Danh sách gợi ý từ SymSpell (nếu có nhiều hơn 1) -->
+            <div id="popoverSuggestionsContainer" class="suggestions-group" style="display: none;">
+                <label>Gợi ý thay thế khác:</label>
+                <div id="popoverSuggestionsList" class="suggestions-list"></div>
+            </div>
+        </div>
+        <div class="popover-actions">
+            <button id="btnPopoverAccept" class="btn btn-sm btn-success">✓ Chấp nhận (Enter)</button>
+            <button id="btnPopoverIgnore" class="btn btn-sm btn-outline">✗ Bỏ qua (X)</button>
+            <button id="btnPopoverWhitelist" class="btn btn-sm btn-outline" title="Miễn kiểm tra từ này cho toàn bộ cuốn sách">
+                + Whitelist (W)
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL DÁN VĂN BẢN TRỰC TIẾP -->
+    <div id="textInputModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Nhập văn bản Markdown cần soát lỗi</h3>
+                <button id="btnModalClose" class="popover-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="rawTextInput" placeholder="Dán nội dung chương sách định dạng Markdown vào đây..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="btnModalCancel" class="btn btn-outline">Hủy</button>
+                <button id="btnModalStartScan" class="btn btn-primary">Bắt đầu quét lỗi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script điều khiển nghiệp vụ (Sẽ xây dựng ở bước tiếp theo) -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
