@@ -238,7 +238,7 @@ Giao diện tập trung tối đa vào công thái học (Ergonomics), giúp ng�
 ### Giai đoạn 5: Dựng Giao diện Web UI (Vanilla JS)
 
 - [x] Viết `server/static/index.html` và `style.css`: Layout Split-view 2 cột với typography thân thiện với việc đọc sách dài.
-- [ ] Viết `server/static/app.js`:
+- [x] Viết `server/static/app.js`:
   - Fetch dữ liệu từ API `/api/scan`.
   - Render thẻ `<mark class="issue [category]" data-id="...">` trên cột phải.
   - Xây dựng hệ thống phím tắt (`J`, `K`, `Enter`, `X`, `W`).
